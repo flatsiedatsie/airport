@@ -1,0 +1,46 @@
+{
+  "author": "Flatsiedatsie",
+  "description": "Airplay audio streaming as well as screen mirroring",
+  "gateway_specific_settings": {
+    "webthings": {
+      "exec": "python3 {path}/main.py",
+      "primary_type": "adapter",
+      "strict_max_version": "*",
+      "strict_min_version": "0.10.0"
+    }
+  },
+  "homepage_url": "https://github.com/flatsiedatsie/airport",
+  "id": "airport",
+  "license": "MPL-2.0",
+  "manifest_version": 1,
+  "name": "Airport",
+  "options": {
+    "default": {
+      "Audio": true,
+      "Video": true
+    },
+    "schema": {
+      "properties": {
+        "Audio": {
+          "description": "Airplay audio-only streaming. Enable this if you want to stream music.",
+          "type": "boolean"
+        },
+        "Video": {
+          "description": "Airplay screen mirroring. Supports audio, but cannot be used to stream audio only.",
+          "type": "boolean"
+        },
+        "Debugging": {
+          "description": "Debugging allows you to diagnose any issues with the add-on. If enabled it will result in a lot more debug data in the internal log (which can be found under settings -> developer -> view internal logs).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Audio",
+        "Video"
+      ],
+      "type": "object"
+    }
+  },
+  "short_name": "Airport",
+  "version": "0.0.1"
+}

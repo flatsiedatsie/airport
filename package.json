@@ -1,0 +1,66 @@
+{
+  "name": "airport-adapter",
+  "display_name": "Airport",
+  "version": "0.0.1",
+  "description": "Adds Airport audio and video streaming support",
+  "author": "CreateCandle",
+  "main": "main.py",
+  "keywords": [
+    "mozilla",
+    "iot",
+    "adapter",
+    "Airport",
+    "Airplay",
+    "Audio",
+	"Video",
+	"Streaming"
+  ],
+  "homepage": "https://github.com/flatsiedatsie/airport",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flatsiedatsie/airport.git"
+  },
+  "bugs": {
+    "url": "https://github.com/flatsiedatsie/airport/issues"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "SHA256SUMS",
+    "lib",
+    "main.py",
+    "manifest.json",
+    "pkg/__init__.py",
+    "pkg/airport.py"
+  ],
+  "moziot": {
+    "api": {
+      "min": 2,
+      "max": 2
+    },
+    "plugin": true,
+    "exec": "python3 {path}/main.py",
+    "config": {
+      "Audio": true,
+      "Video": true
+    },
+    "schema": {
+      "type": "object",
+      "required": [
+        "Audio",
+        "Video"
+      ],
+      "properties": {
+        "Audio": {
+          "type": "boolean",
+          "description": "Airplay audio streaming receiver."
+        },
+        "Video": {
+          "type": "boolean",
+          "description": "Airplay screen mirroring. Supports audio, but cannot be used to stream audio only."
+        }
+      }
+    }
+  }
+}
