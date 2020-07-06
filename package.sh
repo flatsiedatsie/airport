@@ -19,7 +19,7 @@ fi
 mkdir lib package
 
 # Pull down Python dependencies
-pip3 install -r requirements.txt -t lib --no-binary :all: --prefix ""
+#pip3 install -r requirements.txt -t lib --no-binary :all: --prefix ""
 
 # Put package together
 cp -r lib pkg shairport rpiplay LICENSE manifest.json package.json *.py README.md package/

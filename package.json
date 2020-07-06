@@ -1,7 +1,7 @@
 {
   "name": "airport-adapter",
   "display_name": "Airport",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Adds Airport audio and video streaming support",
   "author": "CreateCandle",
   "main": "main.py",

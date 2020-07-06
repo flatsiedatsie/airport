@@ -5,7 +5,6 @@ import os
 from os import path
 import sys
 import json
-#import time
 import socket
 import subprocess
 
@@ -143,9 +142,7 @@ class AirportAdapter(Adapter):
         kill_process('shairport')
         kill_process('rpiplay')
         
-        
 
-            
             
             
     def add_from_config(self):
@@ -165,7 +162,6 @@ class AirportAdapter(Adapter):
             return
         
         
-        
         # Debugging
         try:
             if 'Debugging' in config:
@@ -178,7 +174,6 @@ class AirportAdapter(Adapter):
                 
         except:
             print("Error loading debugging preference")
-            
             
         
         # Audio (for Shairport)
@@ -222,6 +217,8 @@ class AirportAdapter(Adapter):
             
         # Get the latest audio controls
         self.audio_controls = get_audio_controls()
+        if self.DEBUG:
+            print(self.audio_controls)
         
         try:
             # Kill the old Shairport-sync server
@@ -229,10 +226,11 @@ class AirportAdapter(Adapter):
         
             for option in self.audio_controls:
                 if str(option['human_device_name']) == str(selection):
-                    print("CHANGING SHAIRPORT")
+                    if self.DEBUG:
+                        print("Changing Shairport audio output")
                     # Set selection in persistence data
                     self.persistent_data['audio_output'] = str(selection)
-                    print("persistent_data is now: " + str(self.persistent_data))
+                    #print("persistent_data is now: " + str(self.persistent_data))
                     self.save_persistent_data()
                     
                     try:
@@ -248,14 +246,14 @@ class AirportAdapter(Adapter):
                     if self.DEBUG:
                         print("new selection on thing: " + str(selection))
                     try:
-                        print("self.devices = " + str(self.devices))
+                        #print("self.devices = " + str(self.devices))
                         if self.devices['airport'] != None:
                             self.devices['airport'].properties['audio output'].update( str(selection) )
                     except Exception as ex:
                         print("Error setting new audio output selection:" + str(ex))
         
-            print("starting shairport")
-            run_command(self.shairport_start_command);
+            #print("starting shairport")
+            os.system(self.shairport_start_command)
         except Exception as ex:
             print("Error in set_audio_output: " + str(ex))
                 
@@ -277,8 +275,6 @@ class AirportAdapter(Adapter):
             try:
                 # Kill the old rpiplay server
                 done = kill_process('rpiplay')
-        
-                #time.sleep(2)
         
                 # start the new rpiplay server
                 print("starting rpiplay")
@@ -329,7 +325,14 @@ class AirportAdapter(Adapter):
 
 
 
-
+    def remove_thing(self, device_id):
+        try:
+            obj = self.get_device(device_id)
+            self.handle_device_removed(obj)                     # Remove from device dictionary
+            if self.DEBUG:
+                print("User removed Airport device")
+        except:
+            print("Could not remove thing from devices")
 
 
 
@@ -446,6 +449,9 @@ class AirportProperty(Property):
 
 
 
+
+
+
 def get_audio_controls():
 
     audio_controls = []
@@ -537,7 +543,7 @@ def get_audio_controls():
 
 def kill_process(target):
     try:
-        run_command( "sudo killall " + str(target) )
+        os.system( "sudo killall " + str(target) )
         print(str(target) + " stopped")
         return True
     except:
