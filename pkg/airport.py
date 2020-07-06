@@ -5,6 +5,7 @@ import os
 from os import path
 import sys
 import json
+#import time
 import socket
 import subprocess
 
@@ -84,6 +85,7 @@ class AirportAdapter(Adapter):
         # RPIPLAY
         self.video_audio_output_options = ['off','analog','hdmi']
         self.rpiplay_path = os.path.join(self.addon_path, 'rpiplay', 'rpiplay')
+        self.rpiplay_library_path = os.path.join(self.addon_path, 'rpiplay')
         
         
         # Get hostname
@@ -268,16 +270,24 @@ class AirportAdapter(Adapter):
             self.persistent_data['video_audio_output'] = str(selection)
             self.save_persistent_data()
         
-            self.rpiplay_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + str(self.rpiplay_path) + str(self.rpiplay_debug) + " -l -a " + str(selection) + " -b auto -n '" + str(self.hostname) + " video'" 
+            self.rpiplay_start_command = "LD_LIBRARY_PATH='" + self.rpiplay_library_path + "' "  + str(self.rpiplay_path) + str(self.rpiplay_debug) + " -l -a " + str(selection) + " -b auto -n '" + str(self.hostname) + " video' &" 
             if self.DEBUG:
                 print("rpiplay_start_command = " + self.rpiplay_start_command)
+            
+            try:
+                # Kill the old rpiplay server
+                done = kill_process('rpiplay')
         
-            # Kill the old rpiplay server
-            done = kill_process('rpiplay')
+                #time.sleep(2)
         
-            # start the new rpiplay server
-            print("starting rpiplay")
-            run_command( self.rpiplay_start_command )
+                # start the new rpiplay server
+                print("starting rpiplay")
+                #run_command( self.rpiplay_start_command )
+                os.system(self.rpiplay_start_command)
+                
+            except Exception as ex:
+                print("Error restarting rpiplay:" + str(ex))
+            
                
             try:
                 if self.devices['airport'] != None:
@@ -448,36 +458,36 @@ def get_audio_controls():
         if line.startswith( 'card ' ):
             
             try:
-                print(line)
+                #print(line)
                 line_parts = line.split(',')
             
                 line_a = line_parts[0]
-                print(line_a)
+                #print(line_a)
                 line_b = line_parts[1]
-                print(line_b)
+                #print(line_b)
             except:
                 continue
             
             card_id = int(line_a[5])
-            print("card id = " + str(card_id))
+            #print("card id = " + str(card_id))
             
             
             if card_id != previous_card_id:
                 device_id = 0
             
-            print("device id = " + str(device_id))
+            #print("device id = " + str(device_id))
             
             
             simple_card_name = re.findall(r"\:([^']+)\[", line_a)[0]
             simple_card_name = str(simple_card_name).strip()
             
-            print("simple card name = " + str(simple_card_name))
+            #print("simple card name = " + str(simple_card_name))
             
             full_card_name   = re.findall(r"\[([^']+)\]", line_a)[0]
-            print("full card name = " + str(full_card_name))
+            #print("full card name = " + str(full_card_name))
             
             full_device_name = re.findall(r"\[([^']+)\]", line_b)[0]
-            print("full device name = " + str(full_device_name))
+            #print("full device name = " + str(full_device_name))
             
             human_device_name = str(full_device_name)
             
@@ -491,10 +501,7 @@ def get_audio_controls():
             
             # ReSpeaker dual microphone pi hat
             human_device_name = human_device_name.replace("bcm2835-i2s-wm8960-hifi wm8960-hifi-0","ReSpeaker headphone jack")
-            print("human device name = " + human_device_name)
-            
-            
-            
+            #print("human device name = " + human_device_name)
             
             
             control_name = 'none'
@@ -503,9 +510,9 @@ def get_audio_controls():
             if len(lines) > 0:
                 for line in lines:
                     if "'" in line:
-                        print("line = " + line)
+                        #print("line = " + line)
                         control_name = re.findall(r"'([^']+)'", line)[0]
-                        print("control name = " + control_name)
+                        #print("control name = " + control_name)
                         if control_name is not 'mic':
                             break
                         else:
