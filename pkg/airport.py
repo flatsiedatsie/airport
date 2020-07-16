@@ -213,7 +213,7 @@ class AirportAdapter(Adapter):
         
         
     def change_shairport_config(self, original,replacement):
-        f = open(self.shairport_default_conf_path,'r')
+        f = open(self.shairport_conf_path,'r')
         filedata = f.read()
         f.close()
 
@@ -222,7 +222,6 @@ class AirportAdapter(Adapter):
         f = open(self.shairport_conf_path,'w')
         f.write(newdata)
         f.close()
-    
 
 
 
