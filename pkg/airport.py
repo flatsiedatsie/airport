@@ -84,11 +84,15 @@ class AirportAdapter(Adapter):
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
         print("self.shairport_conf_path = " + self.shairport_conf_path)
         
+        os.system("sudo chmod +x " + self.shairport_path)
+        
         
         # RPIPLAY
         self.video_audio_output_options = ['off','analog','hdmi']
         self.rpiplay_path = os.path.join(self.addon_path, 'rpiplay', 'rpiplay')
         self.rpiplay_library_path = os.path.join(self.addon_path, 'rpiplay')
+        
+        os.system("sudo chmod +x " + self.rpiplay_path)
         
         
         # Get hostname
