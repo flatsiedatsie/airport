@@ -54,6 +54,9 @@ class AirportAdapter(Adapter):
         self.persistence_file_path = os.path.join(os.path.expanduser('~'), '.mozilla-iot', 'data', self.addon_name,'persistence.json')
 
         
+        # Get resolution of display
+        
+        
         # Get audio controls
         self.audio_controls = get_audio_controls()
         print(str(self.audio_controls))
@@ -76,9 +79,10 @@ class AirportAdapter(Adapter):
         self.shairport_path = os.path.join(self.addon_path, 'shairport', 'shairport')
         self.shairport_library_path = os.path.join(self.addon_path, 'shairport')
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
-        self.shairport_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport.conf')
+        #self.shairport_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport.conf')
+        self.shairport_conf_path = os.path.join(os.path.expanduser('~'), '.mozilla-iot', 'data', self.addon_name,'shairport.conf')
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
-        print("self.shairport_path = " + self.shairport_path)
+        print("self.shairport_conf_path = " + self.shairport_conf_path)
         
         
         # RPIPLAY
@@ -109,6 +113,28 @@ class AirportAdapter(Adapter):
             self.audio_output_options.append( option['human_device_name'] )
 
 
+        # Start streaming servers
+        if self.audio:
+            print("Enabling Shairport-sync airplay audio receiver")
+            self.set_audio_output(self.persistent_data['audio_output'])
+
+        if self.video:
+            print("Enabling RPiPlay airplay video receiver")
+            
+            self.screen_width  = run_command('cat /sys/class/graphics/fb0/virtual_size | cut -d, -f1')
+            self.screen_height = run_command('cat /sys/class/graphics/fb0/virtual_size | cut -d, -f2')
+            
+            if self.screen_width.startswith('Error'):
+                print("Error getting display size")
+                self.screen_width = 1920
+                self.screen_height = 1080
+
+            print("Detected display size:")
+            print(self.screen_width)
+            print(self.screen_height)
+            self.set_video_audio_output(str(self.persistent_data['video_audio_output']))
+
+
         # Create Airport device
         try:
             #airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
@@ -120,17 +146,6 @@ class AirportAdapter(Adapter):
 
         except Exception as ex:
             print("Could not create airport device: " + str(ex))
-
-
-        # Start streaming servers
-        if self.audio:
-            print("Enabling Shairport-sync airplay audio receiver")
-            self.set_audio_output(self.persistent_data['audio_output'])
-
-        if self.video:
-            print("Enabling RPiPlay airplay video receiver")
-            self.set_video_audio_output(str(self.persistent_data['video_audio_output']))
-
 
 
         print("End of Airport adapter init process")
@@ -198,7 +213,7 @@ class AirportAdapter(Adapter):
         
         
     def change_shairport_config(self, original,replacement):
-        f = open(self.shairport_conf_path,'r')
+        f = open(self.shairport_default_conf_path,'r')
         filedata = f.read()
         f.close()
 
@@ -268,7 +283,7 @@ class AirportAdapter(Adapter):
             self.persistent_data['video_audio_output'] = str(selection)
             self.save_persistent_data()
         
-            self.rpiplay_start_command = "LD_LIBRARY_PATH='" + self.rpiplay_library_path + "' "  + str(self.rpiplay_path) + str(self.rpiplay_debug) + " -l -a " + str(selection) + " -b auto -n '" + str(self.hostname) + " video' &" 
+            self.rpiplay_start_command = "LD_LIBRARY_PATH='" + self.rpiplay_library_path + "' "  + str(self.rpiplay_path) + str(self.rpiplay_debug) + " -l -a " + str(selection) + " -b auto -n '" + str(self.hostname) + " video' -w " + str(self.screen_width.rstrip()) + " -h " + str(self.screen_height.rstrip()) + " &" 
             if self.DEBUG:
                 print("rpiplay_start_command = " + self.rpiplay_start_command)
             
@@ -558,7 +573,7 @@ def run_command(cmd, timeout_seconds=20):
         p = subprocess.run(cmd, timeout=timeout_seconds, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
 
         if p.returncode == 0:
-            return p.stdout  + '\n' + "Command success" #.decode('utf-8')
+            return p.stdout # + '\n' + "Command success" #.decode('utf-8')
             #yield("Command success")
         else:
             if p.stderr:
