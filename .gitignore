@@ -1,0 +1,9 @@
+*.pyc
+*.sha256sum
+*.swp
+*.tgz
+*~
+.DS_Store
+._*
+/lib/
+/package/
