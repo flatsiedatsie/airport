@@ -4,7 +4,7 @@ version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 
 
 # Clean up from previous releases
-rm -rf *.tgz package SHA256SUMS lib
+rm -rf *.tgz package SHA256SUMS lib *.sha256sum
 
 if [ -z "${ADDON_ARCH}" ]; then
   TARFILE_SUFFIX=
@@ -25,6 +25,7 @@ mkdir package
 cp -r pkg shairport rpiplay LICENSE manifest.json *.py README.md package/
 find package -type f -name '*.pyc' -delete
 find package -type f -name '._*' -delete
+find package -type f -name '.sha256sum' -delete 
 find package -type d -empty -delete
 
 # Generate checksums
