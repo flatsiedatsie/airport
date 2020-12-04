@@ -1,4 +1,4 @@
-"""Airport adapter for Mozilla WebThings Gateway."""
+"""Airport adapter for WebThings Gateway."""
 
 import re
 import os
@@ -18,7 +18,7 @@ __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 _CONFIG_PATHS = [
-    os.path.join(os.path.expanduser('~'), '.mozilla-iot', 'config'),
+    os.path.join(os.path.expanduser('~'), '.webthings', 'config'),
 ]
 
 if 'MOZIOT_HOME' in os.environ:
@@ -50,8 +50,8 @@ class AirportAdapter(Adapter):
         self.rpiplay_debug = ""
 
 
-        self.addon_path = os.path.join(os.path.expanduser('~'), '.mozilla-iot', 'addons', self.addon_name)
-        self.persistence_file_path = os.path.join(os.path.expanduser('~'), '.mozilla-iot', 'data', self.addon_name,'persistence.json')
+        self.addon_path = os.path.join(os.path.expanduser('~'), '.webthings', 'addons', self.addon_name)
+        self.persistence_file_path = os.path.join(os.path.expanduser('~'), '.webthings', 'data', self.addon_name,'persistence.json')
 
         
         # Get resolution of display
@@ -80,19 +80,15 @@ class AirportAdapter(Adapter):
         self.shairport_library_path = os.path.join(self.addon_path, 'shairport')
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
         #self.shairport_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport.conf')
-        self.shairport_conf_path = os.path.join(os.path.expanduser('~'), '.mozilla-iot', 'data', self.addon_name,'shairport.conf')
+        self.shairport_conf_path = os.path.join(os.path.expanduser('~'), '.webthings', 'data', self.addon_name,'shairport.conf')
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
         print("self.shairport_conf_path = " + self.shairport_conf_path)
-        
-        os.system("sudo chmod +x " + self.shairport_path)
         
         
         # RPIPLAY
         self.video_audio_output_options = ['off','analog','hdmi']
         self.rpiplay_path = os.path.join(self.addon_path, 'rpiplay', 'rpiplay')
         self.rpiplay_library_path = os.path.join(self.addon_path, 'rpiplay')
-        
-        os.system("sudo chmod +x " + self.rpiplay_path)
         
         
         # Get hostname
@@ -217,7 +213,7 @@ class AirportAdapter(Adapter):
         
         
     def change_shairport_config(self, original,replacement):
-        f = open(self.shairport_conf_path,'r')
+        f = open(self.shairport_default_conf_path,'r')
         filedata = f.read()
         f.close()
 
@@ -226,6 +222,7 @@ class AirportAdapter(Adapter):
         f = open(self.shairport_conf_path,'w')
         f.write(newdata)
         f.close()
+    
 
 
 
