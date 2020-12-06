@@ -4,25 +4,24 @@ import re
 import os
 from os import path
 import sys
+sys.path.append(path.join(path.dirname(path.abspath(__file__)), 'lib'))
+
+
 import json
 import socket
 import subprocess
 
-sys.path.append(path.join(path.dirname(path.abspath(__file__)), 'lib'))
 
 from gateway_addon import Database, Adapter, Device, Property
 
 _TIMEOUT = 3
 
-__location__ = os.path.realpath(
-    os.path.join(os.getcwd(), os.path.dirname(__file__)))
-
 _CONFIG_PATHS = [
     os.path.join(os.path.expanduser('~'), '.webthings', 'config'),
 ]
 
-if 'MOZIOT_HOME' in os.environ:
-    _CONFIG_PATHS.insert(0, os.path.join(os.environ['MOZIOT_HOME'], 'config'))
+if 'WEBTHINGS_HOME' in os.environ:
+    _CONFIG_PATHS.insert(0, os.path.join(os.environ['WEBTHINGS_HOME'], 'config'))
 
 
 
@@ -50,8 +49,8 @@ class AirportAdapter(Adapter):
         self.rpiplay_debug = ""
 
 
-        self.addon_path = os.path.join(os.path.expanduser('~'), '.webthings', 'addons', self.addon_name)
-        self.persistence_file_path = os.path.join(os.path.expanduser('~'), '.webthings', 'data', self.addon_name,'persistence.json')
+        self.addon_path = os.path.join(self.user_profile['addonsDir'], self.addon_name)
+        self.persistence_file_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'persistence.json')
 
         
         # Get resolution of display
@@ -80,7 +79,7 @@ class AirportAdapter(Adapter):
         self.shairport_library_path = os.path.join(self.addon_path, 'shairport')
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
         #self.shairport_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport.conf')
-        self.shairport_conf_path = os.path.join(os.path.expanduser('~'), '.webthings', 'data', self.addon_name,'shairport.conf')
+        self.shairport_conf_path = os.path.join(self.user_profile['addonsDir'], self.addon_name,'shairport.conf')
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
         print("self.shairport_conf_path = " + self.shairport_conf_path)
         
@@ -251,8 +250,15 @@ class AirportAdapter(Adapter):
                     try:
                         # Create a clean default config file to start with
                         os.system('rm ' + self.shairport_conf_path)
+                    except Exception as ex:
+                        print("could not remove settings file:" + str(ex))
+                    
+                    try:
                         os.system('cp ' + self.shairport_default_conf_path + ' ' + self.shairport_conf_path)
-                
+                    except Exception as ex:
+                        print("could not copy settings file:" + str(ex))
+                        
+                    try:
                         self.change_shairport_config('//	output_device = "default";','output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
                         self.change_shairport_config('//	mixer_control_name = "PCM";','//	mixer_control_name = "' + str(option["control_name"]) + '";')
                     except Exception as ex:
