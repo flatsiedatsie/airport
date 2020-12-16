@@ -113,6 +113,19 @@ class AirportAdapter(Adapter):
             self.audio_output_options.append( option['human_device_name'] )
 
 
+        # Create Airport device
+        try:
+            #airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
+            airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
+            #print(str(airport_device));
+            self.handle_device_added( airport_device )
+            #if self.DEBUG:
+            print("airport device created")
+
+        except Exception as ex:
+            print("Could not create airport device: " + str(ex))
+            
+
         # Start streaming servers
         if self.audio:
             print("Enabling Shairport-sync airplay audio receiver")
@@ -135,17 +148,7 @@ class AirportAdapter(Adapter):
             self.set_video_audio_output(str(self.persistent_data['video_audio_output']))
 
 
-        # Create Airport device
-        try:
-            #airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
-            airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
-            #print(str(airport_device));
-            self.handle_device_added( airport_device )
-            #if self.DEBUG:
-            print("airport device created")
 
-        except Exception as ex:
-            print("Could not create airport device: " + str(ex))
 
 
         print("End of Airport adapter init process")
@@ -268,7 +271,8 @@ class AirportAdapter(Adapter):
                     if self.DEBUG:
                         print("new selection on thing: " + str(selection))
                     try:
-                        #print("self.devices = " + str(self.devices))
+                        if self.DEBUG:
+                            print("self.devices = " + str(self.devices))
                         if self.devices['airport'] != None:
                             self.devices['airport'].properties['audio output'].update( str(selection) )
                     except Exception as ex:
