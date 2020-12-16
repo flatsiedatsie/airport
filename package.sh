@@ -19,7 +19,7 @@ fi
 mkdir -p package
 
 # Put package together
-cp -r pkg LICENSE *.json *.py package/
+cp -r pkg shairport rpiplay LICENSE *.json *.py package/
 find package -type f -name '*.pyc' -delete
 find package -type f -name '._*' -delete
 find package -type d -empty -delete
