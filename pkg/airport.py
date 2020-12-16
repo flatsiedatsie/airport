@@ -80,14 +80,16 @@ class AirportAdapter(Adapter):
         #self.shairport_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport.conf')
         self.shairport_conf_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'shairport.conf') # The default file is modified and copied into this file
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
-        print("self.shairport_conf_path = " + self.shairport_conf_path)
+        #print("self.shairport_conf_path = " + self.shairport_conf_path)
         
+        os.system("sudo chmod +x " + str(self.shairport_path))
         
         # RPIPLAY
         self.video_audio_output_options = ['off','analog','hdmi']
         self.rpiplay_path = os.path.join(self.addon_path, 'rpiplay', 'rpiplay')
         self.rpiplay_library_path = os.path.join(self.addon_path, 'rpiplay')
         
+        os.system("sudo chmod +x " + str(self.rpiplay_path))
         
         # Get hostname
         try:
