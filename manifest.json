@@ -17,7 +17,7 @@
   "options": {
     "default": {
       "Audio": true,
-      "Video": true
+      "Video": false
     },
     "schema": {
       "properties": {
@@ -34,13 +34,10 @@
           "type": "boolean"
         }
       },
-      "required": [
-        "Audio",
-        "Video"
-      ],
+      "required": [],
       "type": "object"
     }
   },
   "short_name": "Airport",
-  "version": "1.0.2"
+  "version": "1.0.3"
 }
