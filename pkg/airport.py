@@ -81,6 +81,7 @@ class AirportAdapter(Adapter):
         self.shairport_conf_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'shairport.conf') # The default file is modified and copied into this file
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
         #print("self.shairport_conf_path = " + self.shairport_conf_path)
+        print("self.shairport_start_command: " + str(self.shairport_start_command))
         
         os.system("sudo chmod +x " + str(self.shairport_path))
         
@@ -545,14 +546,14 @@ def get_audio_controls():
                         #print("line = " + line)
                         control_name = re.findall(r"'([^']+)'", line)[0]
                         #print("control name = " + control_name)
-                        if control_name is not 'mic':
+                        if control_name != 'mic':
                             break
                         else:
                             continue # in case the first control is 'mic', ignore it.
                     else:
                         control_name = 'none'
                 
-            if control_name is 'mic':
+            if control_name == 'mic':
                 control_name = 'none'
             
             audio_controls.append({'card_id':card_id, 'device_id':device_id, 'simple_card_name':simple_card_name, 'full_card_name':str(full_card_name), 'full_device_name':str(full_device_name), 'human_device_name':str(human_device_name), 'control_name':str(control_name)}) # ,'controls':lines
