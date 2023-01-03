@@ -1,4 +1,9 @@
-"""Airport adapter for WebThings Gateway."""
+"""Airport adapter for Candle Controller / WebThings Gateway."""
+
+# built shairport-sync with: 
+# ./configure --sysconfdir=/home/pi/.webthings/data/airport --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-airplay-2 --with-libdaemon
+
+# built nqptp wit default options
 
 import re
 import os
@@ -33,13 +38,14 @@ class AirportAdapter(Adapter):
 
         verbose -- whether or not to enable verbose logging
         """
-        print("initialising adapter from class")
         
         self.addon_name = 'airport'
         self.name = self.__class__.__name__
+        self.ready = False
         Adapter.__init__(self, self.addon_name, self.addon_name, verbose=verbose)
         #print("Adapter ID = " + self.get_id())
 
+        self.ready = False
         self.pairing = False
         self.DEBUG = True
         self.running = True
@@ -47,17 +53,32 @@ class AirportAdapter(Adapter):
         self.video = False
         self.rpiplay_debug = ""
 
-
         self.addon_path = os.path.join(self.user_profile['addonsDir'], self.addon_name)
         self.persistence_file_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'persistence.json')
 
+        
+        # get system bits 32/64
+        
+        self.bits = 32
+        bits_extension = ""
+        try:
+            bits_check = run_command('getconf LONG_BIT')
+            self.bits = int(bits_check)
+        except Exception as ex:
+            print("error getting bits of system: " + str(ex))
+        if self.DEBUG:
+            print("System bits: " + str(self.bits))
+        
+        if self.bits == 64:
+            self.bits_extension = "64"
         
         # Get resolution of display
         
         
         # Get audio controls
         self.audio_controls = get_audio_controls()
-        print(str(self.audio_controls))
+        if self.DEBUG:
+            print(str(self.audio_controls))
 
 
         # Get persistent data
@@ -70,19 +91,27 @@ class AirportAdapter(Adapter):
             print("Could not load persistent data (if you just installed the add-on then this is normal)")
             self.persistent_data = {'audio_output': str(self.audio_controls[0]['human_device_name']) ,'video_audio_output':'analog'}
         
-        print("persistent data: " + str(self.persistent_data))
+        if self.DEBUG:
+            print("persistent data: " + str(self.persistent_data))
 
+        
+        kill_process('shairport')
+        if self.bits == 64:
+            kill_process('nqptp')
+        kill_process('rpiplay')
 
         # SHAIRPORT
-        self.shairport_path = os.path.join(self.addon_path, 'shairport', 'shairport')
-        self.shairport_library_path = os.path.join(self.addon_path, 'shairport')
+        self.shairport_library_path = os.path.join(self.addon_path, 'shairport' + self.bits_extension) # will either point to the shairport or shairport64 directory
+        self.shairport_path = os.path.join(self.shairport_library_path, 'shairport') # binary
+        
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
-        #self.shairport_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport.conf')
         self.shairport_conf_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'shairport.conf') # The default file is modified and copied into this file
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
-        #print("self.shairport_conf_path = " + self.shairport_conf_path)
-        print("self.shairport_start_command: " + str(self.shairport_start_command))
         
+        self.nqptp_path = os.path.join(self.shairport_library_path, 'nqptp') # binary
+        self.nqptp_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' sudo "  + self.nqptp_path + " &"
+        
+        os.system("sudo chmod +x " + str(self.nqptp_path))
         os.system("sudo chmod +x " + str(self.shairport_path))
         
         # RPIPLAY
@@ -97,7 +126,8 @@ class AirportAdapter(Adapter):
             self.hostname = str(socket.gethostname())
             self.hostname = self.hostname.title()
         except:
-            print("failed to get hostname")
+            if self.DEBUG:
+                print("failed to get hostname")
             self.hostname = 'Candle'
                 
         
@@ -107,6 +137,10 @@ class AirportAdapter(Adapter):
         except Exception as ex:
             print("Error loading config: " + str(ex))
 
+        
+        # TODO: DEV TEMPORARY    
+        self.DEBUG = True
+        
 
         # create list of human readable audio-only output options for Shairport-sync
         self.audio_output_options = []
@@ -118,47 +152,52 @@ class AirportAdapter(Adapter):
         try:
             #airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
             airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
-            #print(str(airport_device));
+            print("airport device: " + str(airport_device));
             self.handle_device_added( airport_device )
-            #if self.DEBUG:
-            print("airport device created")
+            if self.DEBUG:
+                print("airport device created")
 
         except Exception as ex:
-            print("Could not create airport device: " + str(ex))
+            if self.DEBUG:
+                print("Could not create airport device: " + str(ex))
             
 
         # Start streaming servers
         if self.audio:
-            print("Enabling Shairport-sync airplay audio receiver")
+            if self.DEBUG:
+                print("Enabling Shairport-sync airplay audio receiver")
             self.set_audio_output(self.persistent_data['audio_output'])
-
-        if self.video:
-            print("Enabling RPiPlay airplay video receiver")
+        
+        if self.video: # and self.bits = 32:
+            if self.DEBUG:
+                print("Enabling RPiPlay airplay video receiver")
             
             self.screen_width  = run_command('cat /sys/class/graphics/fb0/virtual_size | cut -d, -f1')
             self.screen_height = run_command('cat /sys/class/graphics/fb0/virtual_size | cut -d, -f2')
             
             if self.screen_width.startswith('Error'):
-                print("Error getting display size")
+                if self.DEBUG:
+                    print("Error getting display size")
                 self.screen_width = 1920
                 self.screen_height = 1080
 
-            print("Detected display size:")
-            print(self.screen_width)
-            print(self.screen_height)
+            if self.DEBUG:
+                print("Detected display size:")
+                print(self.screen_width)
+                print(self.screen_height)
             self.set_video_audio_output(str(self.persistent_data['video_audio_output']))
 
-
-
-
-
-        print("End of Airport adapter init process")
-
+        if self.DEBUG:
+            print("End of Airport adapter init process")
+        self.ready = True
 
 
     def unload(self):
-        print("Shutting down airport")
+        if self.DEBUG:
+            print("Shutting down airport")
         kill_process('shairport')
+        if self.bits == 64:
+            kill_process('nqptp')
         kill_process('rpiplay')
         
 
@@ -242,6 +281,7 @@ class AirportAdapter(Adapter):
         try:
             # Kill the old Shairport-sync server
             done = kill_process('shairport')
+            done = kill_process('nqptp')
         
             for option in self.audio_controls:
                 if str(option['human_device_name']) == str(selection):
@@ -265,12 +305,14 @@ class AirportAdapter(Adapter):
                         
                     try:
                         self.change_shairport_config('//	output_device = "default";','output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
+                        # TODO: is this replacing a commented line?:
                         self.change_shairport_config('//	mixer_control_name = "PCM";','//	mixer_control_name = "' + str(option["control_name"]) + '";')
                     except Exception as ex:
                         print("Error changing shairport settings file:" + str(ex))
         
                     if self.DEBUG:
                         print("new selection on thing: " + str(selection))
+
                     try:
                         if self.DEBUG:
                             print("self.devices = " + str(self.devices))
@@ -280,6 +322,13 @@ class AirportAdapter(Adapter):
                         print("Error setting new audio output selection:" + str(ex))
         
             #print("starting shairport")
+            if self.bits == 64:
+                if self.DEBUG:
+                    print("starting nqptp binary")
+                os.system(self.nqptp_start_command)
+            
+            if self.DEBUG:
+                print("starting shairport binary")
             os.system(self.shairport_start_command)
         except Exception as ex:
             print("Error in set_audio_output: " + str(ex))
@@ -304,14 +353,15 @@ class AirportAdapter(Adapter):
                 done = kill_process('rpiplay')
         
                 # start the new rpiplay server
-                print("starting rpiplay")
+                if self.DEBUG:
+                    print("starting rpiplay")
                 #run_command( self.rpiplay_start_command )
                 os.system(self.rpiplay_start_command)
                 
             except Exception as ex:
-                print("Error restarting rpiplay:" + str(ex))
+                if self.DEBUG:
+                    print("Error restarting rpiplay:" + str(ex))
             
-               
             try:
                 if self.devices['airport'] != None:
                     self.devices['airport'].properties['video audio output'].update( str(selection) )
@@ -321,8 +371,7 @@ class AirportAdapter(Adapter):
         except Exception as ex:
             print("Error in set_audio_output: " + str(ex))
         
-        
-        
+
         
 
     def save_persistent_data(self):
@@ -342,7 +391,8 @@ class AirportAdapter(Adapter):
                 #if self.DEBUG:
                 #    print("saving: " + str(self.persistent_data))
                 json.dump( self.persistent_data, open( self.persistence_file_path, 'w+' ) )
-                print("saved")
+                if self.DEBUG:
+                    print("saved persistent data")
                 return True
             #self.previous_persistent_data = self.persistent_data.copy()
 
@@ -380,10 +430,13 @@ class AirportDevice(Device):
 
         Device.__init__(self, adapter, 'airport')
 
+
+        
         self._id = 'airport'
         self.id = 'airport'
         self.adapter = adapter
-
+        self.DEBUG = self.adapter.DEBUG
+        
         self.name = 'Airport'
         self.title = 'Airport'
         self.description = 'Airport streaming'
@@ -420,7 +473,8 @@ class AirportDevice(Device):
         except Exception as ex:
             print("error adding properties: " + str(ex))
 
-        print("Airport thing has been created.")
+        if self.DEBUG:
+            print("Airport thing has been created.")
 
 
 
@@ -438,11 +492,11 @@ class AirportProperty(Property):
         self.description = description # dictionary
         self.value = value
         self.set_cached_value(value)
-
+        self.device.notify_property_changed(self)
 
 
     def set_value(self, value):
-        print("property: set_value called for " + str(self.title))
+        #print("property: set_value called for " + str(self.title))
         #print("property: set value to: " + str(value))
         try:
             if self.title == 'audio output':
@@ -467,11 +521,11 @@ class AirportProperty(Property):
 
 
     def update(self, value):
-        print("property -> update")
-        #if value != self.value:
-        self.value = value
-        self.set_cached_value(value)
-        self.device.notify_property_changed(self)
+        #print("property -> update")
+        if value != self.value:
+            self.value = value
+            self.set_cached_value(value)
+            self.device.notify_property_changed(self)
 
 
 
