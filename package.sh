@@ -27,7 +27,8 @@ mkdir -p lib package
 pip3 install -r requirements.txt -t lib --no-binary :all: --prefix ""
 
 # Put package together
-cp -r lib pkg LICENSE manifest.json *.py README.md  package/
+#cp -r lib pkg LICENSE manifest.json *.py README.md  package/
+cp -r pkg shairport rpiplay LICENSE *.json *.py package/
 find package -type f -name '*.pyc' -delete
 find package -type f -name '._*' -delete
 find package -type d -empty -delete
