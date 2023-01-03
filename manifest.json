@@ -1,6 +1,6 @@
 {
-  "author": "Flatsiedatsie",
-  "description": "Airplay audio streaming as well as screen mirroring",
+  "author": "CandleSmartHome.com",
+  "description": "Airplay audio streaming. Stream music from your iPhone or Mac laptop to your Candle controller speakers.",
   "gateway_specific_settings": {
     "webthings": {
       "exec": "python3 {path}/main.py",
@@ -26,7 +26,7 @@
           "type": "boolean"
         },
         "Video": {
-          "description": "Airplay screen mirroring. Supports audio, but cannot be used to stream audio only.",
+          "description": "Airplay screen mirroring. Supports audio, but cannot be used to stream audio only. This ability is no longer being developed because it doesn't work well. It might not work.",
           "type": "boolean"
         },
         "Debugging": {
@@ -39,5 +39,5 @@
     }
   },
   "short_name": "Airport",
-  "version": "1.0.6"
+  "version": "1.1.0"
 }
