@@ -69,6 +69,7 @@ class AirportAdapter(Adapter):
         if self.DEBUG:
             print("System bits: " + str(self.bits))
         
+        self.bits_extension = ""
         if self.bits == 64:
             self.bits_extension = "64"
         
@@ -111,8 +112,10 @@ class AirportAdapter(Adapter):
         self.nqptp_path = os.path.join(self.shairport_library_path, 'nqptp') # binary
         self.nqptp_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' sudo "  + self.nqptp_path + " &"
         
-        os.system("sudo chmod +x " + str(self.nqptp_path))
         os.system("sudo chmod +x " + str(self.shairport_path))
+        if self.bits == 64:
+            os.system("sudo chmod +x " + str(self.nqptp_path))
+        
         
         # RPIPLAY
         self.video_audio_output_options = ['off','analog','hdmi']
