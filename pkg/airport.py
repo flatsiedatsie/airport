@@ -54,11 +54,10 @@ class AirportAdapter(Adapter):
         self.rpiplay_debug = ""
 
         self.addon_path = os.path.join(self.user_profile['addonsDir'], self.addon_name)
+        self.data_dir = os.path.join(self.user_profile['dataDir'], self.addon_name)
         self.persistence_file_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'persistence.json')
-
         
         # get system bits 32/64
-        
         self.bits = 32
         bits_extension = ""
         try:
@@ -106,7 +105,7 @@ class AirportAdapter(Adapter):
         self.shairport_path = os.path.join(self.shairport_library_path, 'shairport') # binary
         
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
-        self.shairport_conf_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'shairport.conf') # The default file is modified and copied into this file
+        self.shairport_conf_path = os.path.join(self.data_dir,'shairport.conf') # The default file is modified and copied into this file
         self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
         
         self.nqptp_path = os.path.join(self.shairport_library_path, 'nqptp') # binary
