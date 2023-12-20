@@ -3,10 +3,17 @@
 echo
 echo "___installing packages___"
 apt update
-apt upgrade # this is optional but recommended
-apt install --no-install-recommends build-essential git autoconf automake libtool \
+apt upgrade -y # this is optional but recommended
+apt install -y --no-install-recommends build-essential git autoconf automake libtool \
  libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
- libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
+ libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev \
+ libpipewire-0.3-dev xxd
+
+mkdir -p ./final
+rm -rf ./final/*
+
+rm -rf ./shairport-sync
+rm -rf ./nqptp
 
 echo
 echo "___cloning git___"
@@ -21,35 +28,47 @@ autoreconf -fi
  --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
 make
 
-ls
+#ls
 
 echo
-echo "___testing___"
+echo "___testing shairport___"
 
 if [ -f shairport-sync ]; then
-	shairport-sync -v
-	mkdir -p ./final
-	rm -rf ./final/*
+	./shairport-sync -v
 	
-	cp ./shairport-sync ./final/shairport
-	cd ./final
+	mv ./shairport-sync ../final/shairport
+	cd ../final
 	
 	echo
-	echo "___copying libraries___"
-	
-	readelf -d shairport | grep 'Shared library:' | cut -d "[" -f2 | cut -d "]" -f1 | xargs -I% find / -name "%" | xargs cp -t .
-	
+	cd ..
+#	echo "pwd:"
+#	pwd
+
 	echo
-	echo "DONE"
-	echo
+        echo "___building nqptp___"
+	git clone https://github.com/mikebrady/nqptp.git
+        cd nqptp
+        autoreconf -fi
+        ./configure
+        make
+	mv ./nqptp ../final/
+
+        cd ../final
+        
+        echo
+        echo "___copying libraries___"
+        
+        readelf -d shairport | grep 'Shared library:' | cut -d "[" -f2 | cut -d "]" -f1 | xargs -I% find / -name "%" | xargs cp -t .
+        readelf -d nqptp | grep 'Shared library:' | cut -d "[" -f2 | cut -d "]" -f1 | xargs -I% find / -name "%" | xargs cp -t .
+
 	ls -lah
 	echo
-	du .
+	du . -h
+
+	echo
+	echo "DONE"
+
 else
 	echo
 	echo "FAIL"
 fi
-
-
-
-
