@@ -11,6 +11,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
 import json
+import time
 import socket
 import subprocess
 
@@ -72,6 +73,20 @@ class AirportAdapter(Adapter):
         if self.bits == 64:
             self.bits_extension = "64"
         
+        
+        
+        try:
+            python_version = run_command('python3 --version')
+            print("python_version: ", python_version)
+            
+            printenv_result = run_command('printenv')
+            print("printenv_result: ", printenv_result)
+        except Exception as ex:
+            print("error testing some variables: " + str(ex))
+        
+        
+        
+        
         # Get resolution of display
         
         
@@ -106,7 +121,12 @@ class AirportAdapter(Adapter):
         
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
         self.shairport_conf_path = os.path.join(self.data_dir,'shairport.conf') # The default file is modified and copied into this file
-        self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
+        
+        if self.DEBUG:
+            self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -v -c " + self.shairport_conf_path
+        else:
+            self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
+        
         
         self.nqptp_path = os.path.join(self.shairport_library_path, 'nqptp') # binary
         self.nqptp_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' sudo "  + self.nqptp_path + " &"
@@ -193,15 +213,20 @@ class AirportAdapter(Adapter):
             print("End of Airport adapter init process")
         self.ready = True
 
+        while self.running:
+            time.sleep(1)
+
 
     def unload(self):
         if self.DEBUG:
             print("Shutting down airport")
+            
+        self.running = False
         kill_process('shairport')
         if self.bits == 64:
             kill_process('nqptp')
         kill_process('rpiplay')
-        
+        time.sleep(0.1)
 
             
             
@@ -258,15 +283,24 @@ class AirportAdapter(Adapter):
         
         
     def change_shairport_config(self, original,replacement):
+        if self.DEBUG:
+            print("in change_shairport_config. \noriginal: ", original, "\n\nreplacement: ", replacement)
+        
         f = open(self.shairport_default_conf_path,'r')
         filedata = f.read()
         f.close()
 
-        newdata = filedata.replace(original,replacement)
+        if original in filedata:
+            newdata = filedata.replace(original,replacement)
+            
+            f = open(self.shairport_conf_path,'w')
+            f.write(newdata)
+            f.close()
+            
+        else:
+            print("ERROR, change_shairport_config: could not find the string to replace: ", original)
 
-        f = open(self.shairport_conf_path,'w')
-        f.write(newdata)
-        f.close()
+        
     
 
 
@@ -278,7 +312,7 @@ class AirportAdapter(Adapter):
         # Get the latest audio controls
         self.audio_controls = get_audio_controls()
         if self.DEBUG:
-            print(self.audio_controls)
+            print("self.audio_controls: ", self.audio_controls)
         
         try:
             # Kill the old Shairport-sync server
@@ -286,9 +320,13 @@ class AirportAdapter(Adapter):
             done = kill_process('nqptp')
         
             for option in self.audio_controls:
+                
+                if self.DEBUG:
+                    print("checking agains audio control option: ", option)
+                
                 if str(option['human_device_name']) == str(selection):
                     if self.DEBUG:
-                        print("Changing Shairport audio output")
+                        print("Changing Shairport audio output to: ", selection, option)
                     # Set selection in persistence data
                     self.persistent_data['audio_output'] = str(selection)
                     #print("persistent_data is now: " + str(self.persistent_data))
@@ -306,9 +344,19 @@ class AirportAdapter(Adapter):
                         print("could not copy settings file:" + str(ex))
                         
                     try:
-                        self.change_shairport_config('//	output_device = "default";','output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
+                        # //      output_device = "default";
+                        print("option simple_card_name: ", option["simple_card_name"])
+                        
+                        
+                        self.change_shairport_config('//	output_device = "default";', 'output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
+                        #self.change_shairport_config('//      output_device = "default";', 'output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
                         # TODO: is this replacing a commented line?:
+                        
+                        #if option["control_name"] != 'none':
                         self.change_shairport_config('//	mixer_control_name = "PCM";','//	mixer_control_name = "' + str(option["control_name"]) + '";')
+                        #self.change_shairport_config('//      mixer_control_name = "none";','//	mixer_control_name = "' + str(option["control_name"]) + '";')
+                        
+                        
                     except Exception as ex:
                         print("Error changing shairport settings file:" + str(ex))
         
@@ -322,18 +370,28 @@ class AirportAdapter(Adapter):
                             self.devices['airport'].properties['audio output'].update( str(selection) )
                     except Exception as ex:
                         print("Error setting new audio output selection:" + str(ex))
+                        
+                    break
         
             #print("starting shairport")
             if self.bits == 64:
                 if self.DEBUG:
-                    print("starting nqptp binary")
+                    print("starting nqptp binary with command: ", self.nqptp_start_command)
                 os.system(self.nqptp_start_command)
+
+            time.sleep(1)
             
             if self.DEBUG:
-                print("starting shairport binary")
+                print("starting shairport binary with command: ", self.shairport_start_command)
+
+            #shairport_result = run_command(self.shairport_start_command)
+            #if self.DEBUG:
+            #    print("shairport_result ", shairport_result)
+                
             os.system(self.shairport_start_command)
         except Exception as ex:
-            print("Error in set_audio_output: " + str(ex))
+            if self.DEBUG:
+                print("Error in set_audio_output: " + str(ex))
                 
         
         
