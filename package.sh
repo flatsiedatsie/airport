@@ -28,7 +28,12 @@ pip3 install -r requirements.txt -t lib --no-cache --no-binary :all: --no-cache 
 
 # Put package together
 #cp -r lib pkg LICENSE manifest.json *.py README.md  package/
-cp -r pkg shairport shairport64 rpiplay LICENSE *.json *.py package/
+
+chmod +x ./shairport64/shairport
+chmod +x ./shairport64/metadata_reader
+chmod +x ./shairport64/nqptp
+
+cp -r pkg images shairport shairport64 rpiplay LICENSE *.json *.py package/
 find package -type f -name '*.pyc' -delete
 find package -type f -name '._*' -delete
 find package -type d -empty -delete
