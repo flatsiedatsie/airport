@@ -9,3 +9,10 @@ https://github.com/mikebrady/shairport-sync
 
 RPiPlay
 https://github.com/FD-/RPiPlay
+
+
+shairport-sync was created with:
+
+```
+./configure --with-alsa --with-pipewire --with-soxr --with-avahi --with-ssl=openssl --with-metadata --with-mqtt-client --with-dbus-interface --with-dbus-test-client --with-libdaemon --with-piddir=/var/run/airport --sysconfdir=/home/pi/.webthings/data/airport --with-configfiles --with-airplay-2
+```
