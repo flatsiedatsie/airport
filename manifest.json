@@ -16,21 +16,16 @@
   "name": "Airport",
   "options": {
     "default": {
-      "Audio": true,
       "Video": false
     },
     "schema": {
       "properties": {
-        "Audio": {
-          "description": "Airplay audio-only streaming. Enable this if you want to stream music.",
-          "type": "boolean"
-        },
         "Video": {
           "description": "Airplay screen mirroring. Supports audio, but cannot be used to stream audio only. This ability is no longer being developed because it doesn't work well. It might not work.",
           "type": "boolean"
         },
         "Debugging": {
-          "description": "Debugging allows you to diagnose any issues with the add-on. If enabled it will result in a lot more debug data in the internal log (which can be found under settings -> developer -> view internal logs).",
+          "description": "Advanced. Debugging allows you to diagnose any issues with the add-on. If enabled it will result in a lot more debug data in the internal log (which can be found under settings -> developer -> view internal logs).",
           "type": "boolean"
         }
       },
@@ -39,5 +34,8 @@
     }
   },
   "short_name": "Airport",
-  "version": "1.1.6"
+  "version": "2.0.0",
+  "web_accessible_resources": [
+    "images/menu-icon.svg"
+  ]
 }

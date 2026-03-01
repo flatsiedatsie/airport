@@ -10,11 +10,11 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
+from time import sleep
 import json
-import time
 import socket
+import threading
 import subprocess
-
 
 
 from gateway_addon import Database, Adapter, Device, Property
@@ -46,11 +46,12 @@ class AirportAdapter(Adapter):
         Adapter.__init__(self, self.addon_name, self.addon_name, verbose=verbose)
         #print("Adapter ID = " + self.get_id())
 
-        self.ready = False
-        self.pairing = False
-        self.DEBUG = True
         self.running = True
-        self.audio = False
+        self.thread_should_stop = threading.Event()
+        self.ready = False
+        #self.pairing = False
+        self.DEBUG = False
+        self.audio = True
         self.video = False
         self.rpiplay_debug = ""
 
@@ -65,7 +66,7 @@ class AirportAdapter(Adapter):
             bits_check = run_command('getconf LONG_BIT')
             self.bits = int(bits_check)
         except Exception as ex:
-            print("error getting bits of system: " + str(ex))
+            print("caught error getting bits of system: " + str(ex))
         if self.DEBUG:
             print("System bits: " + str(self.bits))
         
@@ -73,21 +74,13 @@ class AirportAdapter(Adapter):
         if self.bits == 64:
             self.bits_extension = "64"
         
-        
-        
-        try:
-            python_version = run_command('python3 --version')
-            print("python_version: ", python_version)
-            
-            printenv_result = run_command('printenv')
-            print("printenv_result: ", printenv_result)
-        except Exception as ex:
-            print("error testing some variables: " + str(ex))
-        
-        
-        
-        
         # Get resolution of display
+        
+        
+        self.pipewire_enabled = False
+        if '/pipewire' in str(run_command('ps aux | grep pipewire')):
+            self.pipewire_enabled = True
+        
         
         
         # Get audio controls
@@ -103,12 +96,19 @@ class AirportAdapter(Adapter):
                 if self.DEBUG:
                     print("Persistent data was loaded succesfully.")
         except:
-            print("Could not load persistent data (if you just installed the add-on then this is normal)")
+            #print("Could not load persistent data (if you just installed the add-on then this is normal)")
             self.persistent_data = {'audio_output': str(self.audio_controls[0]['human_device_name']) ,'video_audio_output':'analog'}
+        
+        
+        if not 'state' in self.persistent_data:
+            self.persistent_data['state'] = True
+            self.save_persistent_data()
         
         if self.DEBUG:
             print("persistent data: " + str(self.persistent_data))
 
+        
+        
         
         kill_process('shairport')
         if self.bits == 64:
@@ -122,18 +122,21 @@ class AirportAdapter(Adapter):
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
         self.shairport_conf_path = os.path.join(self.data_dir,'shairport.conf') # The default file is modified and copied into this file
         
-        if self.DEBUG:
-            self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -v -c " + self.shairport_conf_path
-        else:
-            self.shairport_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' "  + self.shairport_path + " -j -c " + self.shairport_conf_path
-        
+        self.shairport_start_command = "cd /; LD_LIBRARY_PATH='" + self.shairport_library_path + "' sudo "  + self.shairport_path   # -j -c " + self.shairport_conf_path
+        if self.pipewire_enabled:
+            self.shairport_start_command += ' -o pipewire'
         
         self.nqptp_path = os.path.join(self.shairport_library_path, 'nqptp') # binary
         self.nqptp_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' sudo "  + self.nqptp_path + " &"
         
-        os.system("sudo chmod +x " + str(self.shairport_path))
+        self.metadata_reader_path = os.path.join(self.shairport_library_path,'metadata_reader')
+        self.metadata_reader_command = self.metadata_reader_path + ' < /tmp/shairport-sync-metadata'
+        
+        
+        os.system("chmod +x " + str(self.metadata_reader_path))
+        os.system("chmod +x " + str(self.shairport_path))
         if self.bits == 64:
-            os.system("sudo chmod +x " + str(self.nqptp_path))
+            os.system("chmod +x " + str(self.nqptp_path))
         
         
         # RPIPLAY
@@ -141,7 +144,8 @@ class AirportAdapter(Adapter):
         self.rpiplay_path = os.path.join(self.addon_path, 'rpiplay', 'rpiplay')
         self.rpiplay_library_path = os.path.join(self.addon_path, 'rpiplay')
         
-        os.system("sudo chmod +x " + str(self.rpiplay_path))
+        if os.path.isfile(self.rpiplay_path):
+            os.system("chmod +x " + str(self.rpiplay_path))
         
         # Get hostname
         try:
@@ -161,7 +165,18 @@ class AirportAdapter(Adapter):
 
         
         # TODO: DEV TEMPORARY    
-        self.DEBUG = True
+        #self.DEBUG = True
+        
+        
+        
+        self.metadata = {"artist":"","album":"","title":""}
+        
+        if os.path.isfile(self.metadata_reader_path):
+            if self.DEBUG:
+                print("starting metadata reader thread")
+            self.metadata_reader_thread = threading.Thread(target=self.metadata_reader)
+            self.metadata_reader_thread.daemon = True
+            self.metadata_reader_thread.start()
         
 
         # create list of human readable audio-only output options for Shairport-sync
@@ -174,21 +189,29 @@ class AirportAdapter(Adapter):
         try:
             #airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
             airport_device = AirportDevice(self, self.audio_output_options, self.video_audio_output_options)
-            print("airport device: " + str(airport_device));
+            #print("airport device: " + str(airport_device));
             self.handle_device_added( airport_device )
             if self.DEBUG:
                 print("airport device created")
 
         except Exception as ex:
             if self.DEBUG:
-                print("Could not create airport device: " + str(ex))
+                print("\nCaught error creating airport device: " + str(ex))
             
 
         # Start streaming servers
         if self.audio:
             if self.DEBUG:
                 print("Enabling Shairport-sync airplay audio receiver")
-            self.set_audio_output(self.persistent_data['audio_output'])
+        
+        
+            
+        if self.devices['airport'] != None:
+            self.devices['airport'].properties['state'].update( bool(self.persistent_data['state']) )
+        
+        if bool(self.persistent_data['state']) == True:
+            self.set_audio_output()
+        
         
         if self.video: # and self.bits = 32:
             if self.DEBUG:
@@ -213,20 +236,66 @@ class AirportAdapter(Adapter):
             print("End of Airport adapter init process")
         self.ready = True
 
-        while self.running:
-            time.sleep(1)
+
+
+
+
+    def metadata_reader(self):
+        while not self.thread_should_stop.is_set():
+            if os.path.isfile('/tmp/shairport-sync-metadata') and self.devices['airport'] != None:
+                metadata_output = run_command(self.metadata_reader_command,1)
+                if isinstance(metadata_output,str) and len(metadata_output) > 20:
+                    if self.DEBUG:
+                        print("\nmetadata_reader output: \n" + str(metadata_output))
+                    
+                    new_metadata = {"artist":"","album":"","title":""}
+                    
+                    for line in metadata_output.splitlines():
+                        if line.startswith('Artist: "'):
+                            line = line.replace('Artist: "','').strip().rstrip()
+                            line = line[:-2]
+                            if self.metadata['artist'] != line:
+                                new_metadata['artist'] = line
+                        
+                        elif line.startswith('Album Name: "'):
+                            line = line.replace('Album Name: "','').strip().rstrip()
+                            line = line[:-2]
+                            if self.metadata['album'] != line:
+                                new_metadata['album'] = line
+                        
+                        elif line.startswith('Title: "'):
+                            line = line.replace('Title: "','').strip().rstrip()
+                            line = line[:-2]
+                            if self.metadata['title'] != line:
+                                new_metadata['title'] = line
+                    
+                    if new_metadata["artist"] != "" or new_metadata["album"] != "" or new_metadata["title"] != "":
+                        self.metadata = new_metadata
+                        self.devices['airport'].properties['artist'].update( self.metadata['artist'] )
+                        self.devices['airport'].properties['album'].update( self.metadata['album'] )
+                        self.devices['airport'].properties['title'].update( self.metadata['title'] )
+                        if self.DEBUG:
+                            print("metadata changed to: ", json.dumps(self.metadata,indent=2))
+                        
+            else:
+                sleep(0.5)
+            sleep(0.1)
+        
+        if self.DEBUG:
+            print("metadata_reader is beyond while loop")
+        
 
 
     def unload(self):
         if self.DEBUG:
             print("Shutting down airport")
-            
         self.running = False
+        self.thread_should_stop.set()
         kill_process('shairport')
         if self.bits == 64:
             kill_process('nqptp')
         kill_process('rpiplay')
-        time.sleep(0.1)
+        
 
             
             
@@ -239,8 +308,8 @@ class AirportAdapter(Adapter):
 
             config = database.load_config()
             database.close()
-        except:
-            print("Error! Failed to open settings database.")
+        except Exception as ex:
+            print("Error! Failed to open settings database: ", ex)
 
         if not config:
             print("Error loading config from database")
@@ -251,147 +320,125 @@ class AirportAdapter(Adapter):
         try:
             if 'Debugging' in config:
                 self.DEBUG = bool(config['Debugging'])
-                self.rpiplay_debug = " -vv"
+                
+                if self.DEBUG:
+                    self.rpiplay_debug = " -vv"
+                    
                 if self.DEBUG:
                     print("Debugging is set to: " + str(self.DEBUG))
-            else:
-                self.DEBUG = False
+            
+                if 'Video' in config:
+                    self.video = bool(config['Video'])
+                else:
+                    print("Video was not in config")
                 
-        except:
-            print("Error loading debugging preference")
+        except Exception as ex:
+            print("add_from_config: caught error loading preferences: " + str(ex))
             
         
         # Audio (for Shairport)
-        try:
-            if 'Audio' in config:
-                self.audio = bool(config['Audio'])
-            else:
-                print("Audio was not in config")
-        except Exception as ex:
-            print("Audio config error:" + str(ex))
+        #try:
+        #    if 'Audio' in config:
+        #        self.audio = bool(config['Audio'])
+        #    else:
+        #        print("Audio was not in config")
+        #except Exception as ex:
+        #    print("Audio config error:" + str(ex))
 
-        
-        # Video (for RpiPlay)
-        try:
-            if 'Video' in config:
-                self.video = bool(config['Video'])
-            else:
-                print("Video was not in config")
-        except Exception as ex:
-            print("Video config error:" + str(ex))
-        
-        
-        
+    
+    # Deprecated    
     def change_shairport_config(self, original,replacement):
-        if self.DEBUG:
-            print("in change_shairport_config. \noriginal: ", original, "\n\nreplacement: ", replacement)
-        
         f = open(self.shairport_default_conf_path,'r')
         filedata = f.read()
         f.close()
 
-        if original in filedata:
-            newdata = filedata.replace(original,replacement)
-            
-            f = open(self.shairport_conf_path,'w')
-            f.write(newdata)
-            f.close()
-            
-        else:
-            print("ERROR, change_shairport_config: could not find the string to replace: ", original)
+        newdata = filedata.replace(original,replacement)
 
-        
+        f = open(self.shairport_conf_path,'w')
+        f.write(newdata)
+        f.close()
     
 
 
 
-    def set_audio_output(self, selection):
-        if self.DEBUG:
-            print("Setting shairport selection to: " + str(selection))
+    def set_state(self,new_state):
+        if bool(new_state) != self.persistent_data['state']:
+            self.persistent_data['state'] = bool(new_state)
+            self.save_persistent_data()
             
-        # Get the latest audio controls
-        self.audio_controls = get_audio_controls()
+            self.set_audio_output()
+            
+        if self.devices['airport'] != None:
+            self.devices['airport'].properties['state'].update( bool(self.persistent_data['state']) )
+
+
+
+    def set_audio_output(self, selection=None):
         if self.DEBUG:
-            print("self.audio_controls: ", self.audio_controls)
-        
+            print("in set_audio_output.  Selection: ", selection)
+            
         try:
             # Kill the old Shairport-sync server
             done = kill_process('shairport')
             done = kill_process('nqptp')
-        
-            for option in self.audio_controls:
-                
-                if self.DEBUG:
-                    print("checking agains audio control option: ", option)
-                
-                if str(option['human_device_name']) == str(selection):
-                    if self.DEBUG:
-                        print("Changing Shairport audio output to: ", selection, option)
-                    # Set selection in persistence data
-                    self.persistent_data['audio_output'] = str(selection)
-                    #print("persistent_data is now: " + str(self.persistent_data))
-                    self.save_persistent_data()
-                    
-                    try:
-                        # Create a clean default config file to start with
-                        os.system('rm ' + self.shairport_conf_path)
-                    except Exception as ex:
-                        print("could not remove settings file:" + str(ex))
-                    
-                    try:
-                        os.system('cp ' + self.shairport_default_conf_path + ' ' + self.shairport_conf_path)
-                    except Exception as ex:
-                        print("could not copy settings file:" + str(ex))
-                        
-                    try:
-                        # //      output_device = "default";
-                        print("option simple_card_name: ", option["simple_card_name"])
-                        
-                        
-                        self.change_shairport_config('//	output_device = "default";', 'output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
-                        #self.change_shairport_config('//      output_device = "default";', 'output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
-                        # TODO: is this replacing a commented line?:
-                        
-                        #if option["control_name"] != 'none':
-                        self.change_shairport_config('//	mixer_control_name = "PCM";','//	mixer_control_name = "' + str(option["control_name"]) + '";')
-                        #self.change_shairport_config('//      mixer_control_name = "none";','//	mixer_control_name = "' + str(option["control_name"]) + '";')
-                        
-                        
-                    except Exception as ex:
-                        print("Error changing shairport settings file:" + str(ex))
-        
-                    if self.DEBUG:
-                        print("new selection on thing: " + str(selection))
-
-                    try:
-                        if self.DEBUG:
-                            print("self.devices = " + str(self.devices))
-                        if self.devices['airport'] != None:
-                            self.devices['airport'].properties['audio output'].update( str(selection) )
-                    except Exception as ex:
-                        print("Error setting new audio output selection:" + str(ex))
-                        
-                    break
-        
-            #print("starting shairport")
-            if self.bits == 64:
-                if self.DEBUG:
-                    print("starting nqptp binary with command: ", self.nqptp_start_command)
-                os.system(self.nqptp_start_command)
-
-            time.sleep(1)
             
-            if self.DEBUG:
-                print("starting shairport binary with command: ", self.shairport_start_command)
-
-            #shairport_result = run_command(self.shairport_start_command)
-            #if self.DEBUG:
-            #    print("shairport_result ", shairport_result)
+            if self.pipewire_enabled == False and selection != None:
+                if self.DEBUG:
+                    print("Setting shairport selection to: " + str(selection))
                 
-            os.system(self.shairport_start_command)
+                # Get the latest audio controls
+                self.audio_controls = get_audio_controls()
+                if self.DEBUG:
+                    print(self.audio_controls)
+                
+                for option in self.audio_controls:
+                    if str(option['human_device_name']) == str(selection):
+                        if self.DEBUG:
+                            print("Changing Shairport audio output")
+                        # Set selection in persistence data
+                        self.persistent_data['audio_output'] = str(selection)
+                        #print("persistent_data is now: " + str(self.persistent_data))
+                        self.save_persistent_data()
+                    
+                        
+                    
+                        try:
+                            # Create a clean default config file to start with
+                            os.system('rm ' + self.shairport_conf_path)
+                
+                            os.system('cp ' + self.shairport_default_conf_path + ' ' + self.shairport_conf_path)
+                
+                            self.change_shairport_config('//	output_device = "default";','output_device = "plughw:CARD=' + str(option["simple_card_name"]) + ',DEV=' + str(option["device_id"]) + '";')
+                            # TODO: is this replacing a commented line?:
+                            self.change_shairport_config('//	mixer_control_name = "PCM";','//	mixer_control_name = "' + str(option["control_name"]) + '";')
+                        except Exception as ex:
+                            print("Error changing shairport settings file:" + str(ex))
+        
+                        #if self.DEBUG:
+                        #    print("new selection on thing: " + str(selection))
+
+                        try:
+                            #if self.DEBUG:
+                            #    print("self.devices = " + str(self.devices))
+                            if self.devices['airport'] != None:
+                                self.devices['airport'].properties['audio output'].update( str(selection) )
+                        except Exception as ex:
+                            print("Error setting new audio output selection:" + str(ex))
+        
+        
+            if self.persistent_data['state'] == True:
+                #print("starting shairport")
+                if self.bits == 64:
+                    if self.DEBUG:
+                        print("starting nqptp binary with command: ", self.nqptp_start_command)
+                    os.system(self.nqptp_start_command)
+            
+                if self.DEBUG:
+                    print("starting shairport binary wih command: ", self.shairport_start_command)
+                os.system(self.shairport_start_command)
+                
         except Exception as ex:
-            if self.DEBUG:
-                print("Error in set_audio_output: " + str(ex))
+            print("Error in set_audio_output: " + str(ex))
                 
         
         
@@ -411,7 +458,7 @@ class AirportAdapter(Adapter):
             try:
                 # Kill the old rpiplay server
                 done = kill_process('rpiplay')
-        
+                
                 # start the new rpiplay server
                 if self.DEBUG:
                     print("starting rpiplay")
@@ -497,17 +544,44 @@ class AirportDevice(Device):
         self.adapter = adapter
         self.DEBUG = self.adapter.DEBUG
         
+        self._type.append("OnOffSwitch")
+        
         self.name = 'Airport'
         self.title = 'Airport'
         self.description = 'Airport streaming'
         #self._type = ['MultiLevelSwitch']
         #self.connected = False
-
+        
         self.audio_output_list = audio_output_list
         self.video_audio_output_list = video_audio_output_list
+        
+        self.properties["state"] = AirportProperty(
+                            self,
+                            "state",
+                            {
+                                '@type': 'OnOffProperty',
+                                'title': "State",
+                                'type': 'boolean',
+                                'readOnly': False,
+                            },
+                            bool(self.adapter.persistent_data['state']))
+                           
+
+        
+        for metadata_key in list(self.adapter.metadata.keys()):
+            self.properties[metadata_key] = AirportProperty(
+                                self,
+                                metadata_key,
+                                {
+                                    'title': metadata_key.capitalize(),
+                                    'type': 'string',
+                                    'readOnly': True,
+                                },
+                                "")
+
 
         try:
-            if self.adapter.audio:
+            if self.adapter.pipewire_enabled == False and self.adapter.audio == True:
                 self.properties["audio output"] = AirportProperty(
                                 self,
                                 "audio output",
@@ -520,14 +594,14 @@ class AirportDevice(Device):
 
             if self.adapter.video:
                 self.properties["video audio output"] = AirportProperty(
-                                self,
-                                "video audio output",
-                                {
-                                    'label': "Video audio output",
-                                    'type': 'string',
-                                    'enum': video_audio_output_list,
-                                },
-                                self.adapter.persistent_data['video_audio_output'])
+                                    self,
+                                    "video audio output",
+                                    {
+                                        'label': "Video audio output",
+                                        'type': 'string',
+                                        'enum': video_audio_output_list,
+                                    },
+                                    self.adapter.persistent_data['video_audio_output'])
 
 
         except Exception as ex:
@@ -566,6 +640,10 @@ class AirportProperty(Property):
 
             if self.title == 'video audio output':
                 self.device.adapter.set_video_audio_output(str(value))
+
+
+            if self.title == 'state':
+                self.device.adapter.set_state(bool(value))
 
             #if self.title == 'power':
             #    self.device.adapter.set_airport_state(bool(value))
