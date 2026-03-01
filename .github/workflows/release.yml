@@ -16,7 +16,7 @@ jobs:
     - name: Dump upload url to file
       run: echo '${{ steps.get_release.outputs.upload_url }}' > upload_url
     - name: Upload upload_url
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: upload_url
         path: upload_url
@@ -31,7 +31,6 @@ jobs:
 #          'linux-x64',
         ]
         pair: [
-          'python:3.7',
           'python:3.9',
         ]
         include:
@@ -41,9 +40,6 @@ jobs:
             host-os: 'ubuntu-latest'
 #          - platform: 'linux-x64'
 #            host-os: 'ubuntu-latest'
-          - pair: 'python:3.7'
-            language: 'python'
-            version: '3.7'
           - pair: 'python:3.9'
             language: 'python'
             version: '3.9'
@@ -52,7 +48,7 @@ jobs:
 
     steps:
     - name: Download upload_url
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: upload_url
         path: upload_url
