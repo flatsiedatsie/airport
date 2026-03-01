@@ -14,5 +14,5 @@ https://github.com/FD-/RPiPlay
 Shairport-sync was created with:
 
 ```
-./configure --with-alsa --with-pipewire --with-soxr --with-avahi --with-ssl=openssl --with-metadata --with-mqtt-client --with-dbus-interface --with-dbus-test-client --with-libdaemon --with-piddir=/var/run/shairport --sysconfdir=/home/pi/.webthings/data/airport --with-configfiles --with-airplay-2
+./configure --sysconfdir=/etc --with-alsa --with-pipewire --with-soxr --with-avahi --with-ssl=openssl --sysconfdir=/home/pi/.webthings/data/airport --with-metadata --with-airplay-2
 ```
