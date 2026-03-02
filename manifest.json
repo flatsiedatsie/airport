@@ -1,5 +1,6 @@
 {
   "author": "CandleSmartHome.com",
+  "content_scripts": [],
   "description": "Airplay audio streaming. Stream music from your iPhone or Mac laptop to your Candle controller speakers.",
   "gateway_specific_settings": {
     "webthings": {
