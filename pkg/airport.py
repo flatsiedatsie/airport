@@ -122,7 +122,18 @@ class AirportAdapter(Adapter):
         self.shairport_default_conf_path = os.path.join(self.addon_path, 'shairport', 'shairport_default.conf')
         self.shairport_conf_path = os.path.join(self.data_dir,'shairport.conf') # The default file is modified and copied into this file
         
-        self.shairport_start_command = "cd /; LD_LIBRARY_PATH='" + self.shairport_library_path + "' sudo "  + self.shairport_path   # -j -c " + self.shairport_conf_path
+        # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/your/custom/path/
+
+        # /lib/ld-linux.so.2 --library-path PATH EXECUTABLE
+        # /lib/ld-linux-aarch64.so.1 --library-path /home/pi/.webthings/addons/airport/shairport64
+        
+        if self.bits == 64 and os.path.isfile('/lib/ld-linux-aarch64.so.1'):
+            self.shairport_start_command = "cd /; sudo /lib/ld-linux-aarch64.so.1 --library-path " + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
+        elif os.path.isfile('/lib/ld-linux-armhf.so.3'):
+            self.shairport_start_command = "cd /; sudo /lib/ld-linux-armhf.so.3 --library-path " + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
+        else:
+            self.shairport_start_command = "cd /; LD_LIBRARY_PATH=" + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
+
         if self.pipewire_enabled:
             self.shairport_start_command += ' -o pipewire'
         
@@ -348,15 +359,19 @@ class AirportAdapter(Adapter):
     
     # Deprecated    
     def change_shairport_config(self, original,replacement):
-        f = open(self.shairport_default_conf_path,'r')
-        filedata = f.read()
-        f.close()
+        if os.path.isfile(self.shairport_default_conf_path):
+            f = open(self.shairport_default_conf_path,'r')
+            filedata = f.read()
+            f.close()
 
-        newdata = filedata.replace(original,replacement)
+            newdata = filedata.replace(original,replacement)
 
-        f = open(self.shairport_conf_path,'w')
-        f.write(newdata)
-        f.close()
+            f = open(self.shairport_conf_path,'w')
+            f.write(newdata)
+            f.close()
+        else:
+            if self.DEBUG:
+                print("ERROR: shairport config file does not exist: ", self.shairport_default_conf_path)
     
 
 
