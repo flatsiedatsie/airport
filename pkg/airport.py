@@ -10,6 +10,10 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
+# Allows Pipewire audio to work
+os.environ["XDG_RUNTIME_DIR"] = "/run/user/1000"
+os.environ["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/run/user/1000/bus"
+
 from time import sleep
 import json
 import socket
@@ -128,14 +132,16 @@ class AirportAdapter(Adapter):
         # /lib/ld-linux-aarch64.so.1 --library-path /home/pi/.webthings/addons/airport/shairport64
         
         if self.bits == 64 and os.path.isfile('/lib/ld-linux-aarch64.so.1'):
-            self.shairport_start_command = "cd /; sudo /lib/ld-linux-aarch64.so.1 --library-path " + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
+            self.shairport_start_command = "cd /; /lib/ld-linux-aarch64.so.1 --library-path " + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
         elif os.path.isfile('/lib/ld-linux-armhf.so.3'):
-            self.shairport_start_command = "cd /; sudo /lib/ld-linux-armhf.so.3 --library-path " + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
+            self.shairport_start_command = "cd /; /lib/ld-linux-armhf.so.3 --library-path " + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
         else:
             self.shairport_start_command = "cd /; LD_LIBRARY_PATH=" + str(self.shairport_library_path) + " "  + self.shairport_path   # -j -c " + self.shairport_conf_path
-
+        if self.DEBUG:
+            self.shairport_start_command += " -v"
         if self.pipewire_enabled:
-            self.shairport_start_command += ' -o pipewire'
+            self.shairport_start_command += " -o pipewire"
+            
         
         self.nqptp_path = os.path.join(self.shairport_library_path, 'nqptp') # binary
         self.nqptp_start_command = "LD_LIBRARY_PATH='" + self.shairport_library_path + "' sudo "  + self.nqptp_path + " &"
@@ -777,11 +783,13 @@ def get_audio_controls():
 
 def kill_process(target):
     try:
-        os.system( "sudo killall " + str(target) )
-        print(str(target) + " stopped")
+        run_command("sudo kill -9 $(ps aux | grep '" + str(target) + "' | grep -v 'grep --color=auto' | awk '{print $2}')")
+        ##ps_aux_check = run_command('ps aux | grep ' + str(target))
+        #os.system( "sudo killall " + str(target) )
+        print("kill_process: " + str(target) + " should now be stopped")
         return True
     except:
-        print("Error stopping " + str(target))
+        print("kill_process: caught error stopping " + str(target))
         return False
     
 
