@@ -63,6 +63,9 @@ class AirportAdapter(Adapter):
         self.data_dir = os.path.join(self.user_profile['dataDir'], self.addon_name)
         self.persistence_file_path = os.path.join(self.user_profile['dataDir'], self.addon_name,'persistence.json')
         
+        if not os.path.isdir(self.data_dir):
+            os.system('mkdir -p ' + str(self.data_dir))
+        
         # get system bits 32/64
         self.bits = 32
         bits_extension = ""
@@ -326,7 +329,7 @@ class AirportAdapter(Adapter):
             config = database.load_config()
             database.close()
         except Exception as ex:
-            print("Error! Failed to open settings database: ", ex)
+            print("caught error! Failed to open settings database: ", ex)
 
         if not config:
             print("Error loading config from database")
@@ -343,10 +346,11 @@ class AirportAdapter(Adapter):
                     
                 if self.DEBUG:
                     print("Debugging is set to: " + str(self.DEBUG))
-            
-                if 'Video' in config:
-                    self.video = bool(config['Video'])
-                else:
+        
+            if 'Video' in config:
+                self.video = bool(config['Video'])
+            else:
+                if self.DEBUG:
                     print("Video was not in config")
                 
         except Exception as ex:
@@ -508,24 +512,25 @@ class AirportAdapter(Adapter):
 
         try:
             if not os.path.isfile(self.persistence_file_path):
-                open(self.persistence_file_path, 'a').close()
+                os.system('touch ' + str(self.persistence_file_path))
+                #open(self.persistence_file_path, 'a').close()
                 if self.DEBUG:
                     print("Created an empty persistence file")
             else:
                 if self.DEBUG:
                     print("Persistence file existed. Will try to save to it.")
 
-            with open(self.persistence_file_path) as f:
+            with open(self.persistence_file_path, 'w+') as f:
                 #if self.DEBUG:
                 #    print("saving: " + str(self.persistent_data))
-                json.dump( self.persistent_data, open( self.persistence_file_path, 'w+' ) )
+                json.dump( self.persistent_data, f ) # open( self.persistence_file_path, 'w+' )
                 if self.DEBUG:
                     print("saved persistent data")
                 return True
             #self.previous_persistent_data = self.persistent_data.copy()
 
         except Exception as ex:
-            print("Error: could not store data in persistent store: " + str(ex) )
+            print("caught error: could not store data in persistent store: " + str(ex) )
             return False
 
 
@@ -786,10 +791,10 @@ def kill_process(target):
         run_command("sudo kill -9 $(ps aux | grep '" + str(target) + "' | grep -v 'grep --color=auto' | awk '{print $2}')")
         ##ps_aux_check = run_command('ps aux | grep ' + str(target))
         #os.system( "sudo killall " + str(target) )
-        print("kill_process: " + str(target) + " should now be stopped")
+        #print("kill_process: " + str(target) + " should now be stopped")
         return True
-    except:
-        print("kill_process: caught error stopping " + str(target))
+    except Exception as ex:
+        print("kill_process: caught error stopping: " + str(target) + ": ", ex)
         return False
     
 
@@ -806,6 +811,6 @@ def run_command(cmd, timeout_seconds=20):
             if p.stderr:
                 return "Error: " + str(p.stderr)  + '\n' + "Command failed"   #.decode('utf-8'))
 
-    except Exception as e:
-        print("Error running command: "  + str(e))
+    except Exception as ex:
+        print("caught error running command: "  + str(ex))
         
